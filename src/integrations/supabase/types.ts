@@ -14,7 +14,147 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      menu_items: {
+        Row: {
+          allergens: string[] | null
+          available: boolean
+          calories: number | null
+          carbs: number | null
+          category: string
+          created_at: string
+          description: string | null
+          estimated_time: number
+          fat: number | null
+          id: string
+          image: string | null
+          name: string
+          price: number
+          protein: number | null
+          updated_at: string
+        }
+        Insert: {
+          allergens?: string[] | null
+          available?: boolean
+          calories?: number | null
+          carbs?: number | null
+          category: string
+          created_at?: string
+          description?: string | null
+          estimated_time?: number
+          fat?: number | null
+          id?: string
+          image?: string | null
+          name: string
+          price: number
+          protein?: number | null
+          updated_at?: string
+        }
+        Update: {
+          allergens?: string[] | null
+          available?: boolean
+          calories?: number | null
+          carbs?: number | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          estimated_time?: number
+          fat?: number | null
+          id?: string
+          image?: string | null
+          name?: string
+          price?: number
+          protein?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          menu_item_id: string
+          order_id: string
+          price: number
+          quantity: number
+          special_instructions: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          menu_item_id: string
+          order_id: string
+          price: number
+          quantity?: number
+          special_instructions?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          menu_item_id?: string
+          order_id?: string
+          price?: number
+          quantity?: number
+          special_instructions?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          customer_name: string
+          estimated_ready_time: string
+          id: string
+          order_time: string
+          payment_status: string
+          special_instructions: string | null
+          status: string
+          table_number: string | null
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          estimated_ready_time: string
+          id?: string
+          order_time?: string
+          payment_status?: string
+          special_instructions?: string | null
+          status?: string
+          table_number?: string | null
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          estimated_ready_time?: string
+          id?: string
+          order_time?: string
+          payment_status?: string
+          special_instructions?: string | null
+          status?: string
+          table_number?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
