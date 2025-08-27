@@ -22,18 +22,18 @@ export function QRCodeGenerator({ url, title = "Scan for Menu", description = "S
       height: 200,
       data: url,
       dotsOptions: {
-        color: "hsl(var(--primary))",
+        color: "#D97706",
         type: "rounded"
       },
       backgroundOptions: {
-        color: "hsl(var(--background))",
+        color: "#FFFFFF",
       },
       cornersSquareOptions: {
-        color: "hsl(var(--primary))",
+        color: "#DC2626",
         type: "extra-rounded"
       },
       cornersDotOptions: {
-        color: "hsl(var(--primary))",
+        color: "#DC2626",
         type: "dot"
       },
       imageOptions: {
