@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MenuCard } from '@/components/MenuCard';
 import { QRScanner } from '@/components/QRScanner';
+import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { MenuItem, OrderItem } from '@/types/menu';
 import { MenuStorage } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
@@ -134,6 +135,15 @@ export default function Menu() {
           <p className="text-muted-foreground">
             Discover delicious dishes and track your order in real-time
           </p>
+        </div>
+
+        {/* QR Code for Menu Access */}
+        <div className="flex justify-center mb-8">
+          <QRCodeGenerator 
+            url={window.location.origin + '/menu'}
+            title="Menu QR Code"
+            description="Display this QR code for customers to scan and access the menu"
+          />
         </div>
 
         {/* Search and Filter Bar */}
