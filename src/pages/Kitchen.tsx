@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { OrderCard } from '@/components/OrderCard';
 import { Order, OrderStatus, MenuItem } from '@/types/menu';
-import { MenuStorage } from '@/lib/storage';
+import { SupabaseStorage } from '@/lib/supabase-storage';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -21,66 +21,107 @@ export default function Kitchen() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const { toast } = useToast();
 
+  const loadData = async () => {
+    try {
+      const [ordersData, menuData] = await Promise.all([
+        SupabaseStorage.getOrders(),
+        SupabaseStorage.getMenuItems()
+      ]);
+      
+      const activeOrders = ordersData.filter(order => 
+        ['confirmed', 'preparing'].includes(order.status)
+      ).sort((a, b) => a.orderTime.getTime() - b.orderTime.getTime());
+      
+      setOrders(activeOrders);
+      setMenuItems(menuData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load data. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 15000); // Refresh every 15 seconds
-    return () => clearInterval(interval);
+
+    // Set up real-time subscriptions
+    const ordersChannel = SupabaseStorage.subscribeToOrders((newOrders) => {
+      const activeOrders = newOrders.filter(order => 
+        ['confirmed', 'preparing'].includes(order.status)
+      ).sort((a, b) => a.orderTime.getTime() - b.orderTime.getTime());
+      setOrders(activeOrders);
+    });
+
+    const menuChannel = SupabaseStorage.subscribeToMenuItems(setMenuItems);
+
+    return () => {
+      SupabaseStorage.unsubscribe(ordersChannel);
+      SupabaseStorage.unsubscribe(menuChannel);
+    };
   }, []);
 
-  const loadData = () => {
-    const allOrders = MenuStorage.getOrders();
-    const activeOrders = allOrders.filter(order => 
-      ['confirmed', 'preparing'].includes(order.status)
-    ).sort((a, b) => 
-      new Date(a.orderTime).getTime() - new Date(b.orderTime).getTime()
-    );
-    setOrders(activeOrders);
-    setMenuItems(MenuStorage.getMenu());
-  };
-
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus, estimatedTime?: number) => {
-    MenuStorage.updateOrderStatus(orderId, newStatus, estimatedTime);
-    loadData();
-    
-    const order = orders.find(o => o.id === orderId);
-    if (order) {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus, estimatedTime?: number) => {
+    try {
+      await SupabaseStorage.updateOrderStatus(orderId, newStatus, estimatedTime);
+      
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        toast({
+          title: "Order updated",
+          description: `Order #${order.id.slice(-6).toUpperCase()} marked as ${newStatus}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating order:', error);
       toast({
-        title: "Order updated",
-        description: `Order #${order.id.slice(-6).toUpperCase()} marked as ${newStatus}`,
+        title: "Error",
+        description: "Failed to update order status",
+        variant: "destructive",
       });
     }
   };
 
-  const updateMenuItemAvailability = (itemId: string, available: boolean) => {
-    MenuStorage.updateMenuItem(itemId, { available });
-    setMenuItems(current => 
-      current.map(item => 
-        item.id === itemId ? { ...item, available } : item
-      )
-    );
-    
-    const item = menuItems.find(i => i.id === itemId);
-    if (item) {
+  const updateMenuItemAvailability = async (itemId: string, available: boolean) => {
+    try {
+      await SupabaseStorage.updateMenuItem(itemId, { available });
+      
+      const item = menuItems.find(i => i.id === itemId);
+      if (item) {
+        toast({
+          title: "Menu updated",
+          description: `${item.name} is now ${available ? 'available' : 'unavailable'}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating menu item:', error);
       toast({
-        title: "Menu updated",
-        description: `${item.name} is now ${available ? 'available' : 'unavailable'}`,
+        title: "Error", 
+        description: "Failed to update menu item",
+        variant: "destructive",
       });
     }
   };
 
-  const updateMenuItemTime = (itemId: string, newTime: number) => {
-    MenuStorage.updateMenuItem(itemId, { estimatedTime: newTime });
-    setMenuItems(current => 
-      current.map(item => 
-        item.id === itemId ? { ...item, estimatedTime: newTime } : item
-      )
-    );
-    
-    const item = menuItems.find(i => i.id === itemId);
-    if (item) {
+  const updateMenuItemTime = async (itemId: string, newTime: number) => {
+    try {
+      await SupabaseStorage.updateMenuItem(itemId, { estimatedTime: newTime });
+      
+      const item = menuItems.find(i => i.id === itemId);
+      if (item) {
+        toast({
+          title: "Timing updated",
+          description: `${item.name} prep time updated to ${newTime} minutes`,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating menu item time:', error);
       toast({
-        title: "Timing updated",
-        description: `${item.name} prep time updated to ${newTime} minutes`,
+        title: "Error",
+        description: "Failed to update estimated time", 
+        variant: "destructive",
       });
     }
   };

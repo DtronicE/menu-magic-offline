@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { MenuCard } from '@/components/MenuCard';
 import { QRScanner } from '@/components/QRScanner';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
-import { MenuItem, OrderItem } from '@/types/menu';
-import { MenuStorage } from '@/lib/storage';
+import { MenuItem, OrderItem, Order } from '@/types/menu';
+import { SupabaseStorage } from '@/lib/supabase-storage';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -26,10 +26,34 @@ export default function Menu() {
   const [showScanner, setShowScanner] = useState(false);
   const { toast } = useToast();
 
+  const loadMenuItems = async () => {
+    try {
+      const menu = await SupabaseStorage.getMenuItems();
+      setMenuItems(menu);
+      setFilteredItems(menu);
+    } catch (error) {
+      console.error('Error loading menu items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load menu items. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
-    const menu = MenuStorage.getMenu();
-    setMenuItems(menu);
-    setFilteredItems(menu);
+    loadMenuItems();
+
+    // Set up real-time subscription for menu items
+    const menuChannel = SupabaseStorage.subscribeToMenuItems((newMenuItems) => {
+      setMenuItems(newMenuItems);
+      // Re-filter with new data
+      filterItemsWithData(newMenuItems);
+    });
+
+    return () => {
+      SupabaseStorage.unsubscribe(menuChannel);
+    };
   }, []);
 
   useEffect(() => {
@@ -37,7 +61,11 @@ export default function Menu() {
   }, [searchQuery, selectedCategory, menuItems]);
 
   const filterItems = () => {
-    let filtered = menuItems;
+    filterItemsWithData(menuItems);
+  };
+
+  const filterItemsWithData = (items: MenuItem[]) => {
+    let filtered = items;
 
     if (searchQuery) {
       filtered = filtered.filter(item =>
@@ -121,6 +149,65 @@ export default function Menu() {
     return cart.reduce((total, item) => total + item.quantity, 0);
   };
 
+  const getTotalAmount = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const placeOrder = async () => {
+    if (cart.length === 0) {
+      toast({
+        title: "Empty cart",
+        description: "Add some items to your cart before placing an order.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Simple customer info prompt - in a real app, this would be a proper form
+    const customerName = prompt("Please enter your name:");
+    const tableNumber = prompt("Please enter your table number (optional):");
+
+    if (!customerName) {
+      toast({
+        title: "Order cancelled",
+        description: "Customer name is required to place an order.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const order: Order = {
+        id: crypto.randomUUID(),
+        customerName,
+        tableNumber: tableNumber || undefined,
+        status: 'confirmed',
+        orderTime: new Date(),
+        estimatedReadyTime: new Date(Date.now() + Math.max(...cart.map(item => item.menuItem.estimatedTime)) * 60000),
+        totalAmount: getTotalAmount(),
+        paymentStatus: 'pending',
+        items: cart
+      };
+
+      await SupabaseStorage.addOrder(order);
+      
+      // Clear cart after successful order
+      setCart([]);
+      
+      toast({
+        title: "Order placed successfully!",
+        description: `Order #${order.id.slice(-6).toUpperCase()} has been confirmed. It will be ready in approximately ${Math.max(...cart.map(item => item.menuItem.estimatedTime))} minutes.`,
+      });
+    } catch (error) {
+      console.error('Error placing order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to place order. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const availableItems = filteredItems.filter(item => item.available);
   const unavailableItems = filteredItems.filter(item => !item.available);
 
@@ -177,9 +264,14 @@ export default function Menu() {
             Scan QR
           </Button>
 
-          <Button variant="default" className="relative">
+          <Button 
+            variant="default" 
+            className="relative"
+            onClick={placeOrder}
+            disabled={cart.length === 0}
+          >
             <ShoppingCart className="h-4 w-4 mr-2" />
-            Cart
+            {cart.length === 0 ? 'Cart' : `Order ($${getTotalAmount().toFixed(2)})`}
             {getTotalItems() > 0 && (
               <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
                 {getTotalItems()}

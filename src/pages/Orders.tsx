@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { OrderCard } from '@/components/OrderCard';
 import { QRScanner } from '@/components/QRScanner';
 import { Order, OrderStatus } from '@/types/menu';
-import { MenuStorage } from '@/lib/storage';
+import { SupabaseStorage } from '@/lib/supabase-storage';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -23,24 +23,43 @@ export default function Orders() {
   const [showScanner, setShowScanner] = useState(false);
   const { toast } = useToast();
 
+  const loadOrders = async () => {
+    try {
+      const allOrders = await SupabaseStorage.getOrders();
+      // Sort by order time, newest first
+      const sortedOrders = allOrders.sort((a, b) => 
+        new Date(b.orderTime).getTime() - new Date(a.orderTime).getTime()
+      );
+      setOrders(sortedOrders);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load orders. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     loadOrders();
-    const interval = setInterval(loadOrders, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+
+    // Set up real-time subscription for orders
+    const ordersChannel = SupabaseStorage.subscribeToOrders((newOrders) => {
+      const sortedOrders = newOrders.sort((a, b) => 
+        new Date(b.orderTime).getTime() - new Date(a.orderTime).getTime()
+      );
+      setOrders(sortedOrders);
+    });
+
+    return () => {
+      SupabaseStorage.unsubscribe(ordersChannel);
+    };
   }, []);
 
   useEffect(() => {
     filterOrders();
   }, [searchQuery, statusFilter, orders]);
-
-  const loadOrders = () => {
-    const allOrders = MenuStorage.getOrders();
-    // Sort by order time, newest first
-    const sortedOrders = allOrders.sort((a, b) => 
-      new Date(b.orderTime).getTime() - new Date(a.orderTime).getTime()
-    );
-    setOrders(sortedOrders);
-  };
 
   const filterOrders = () => {
     let filtered = orders;
